@@ -2,7 +2,7 @@ import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 GoogleSignin.configure({
-  webClientId: 'SEU_WEB_CLIENT_ID', // pegar no Firebase Console
+  webClientId: '510094023312-elp7es2tkqmvbap4u7rumc6bu0hbt5rj.apps.googleusercontent.com', // pegar no Firebase Console
 });
 
 export const loginWithEmail = (email, password) => {

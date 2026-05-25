@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator,
+  StatusBar, ScrollView,
 } from 'react-native';
 import { forgotPassword } from '../services/authService';
 
@@ -28,45 +29,116 @@ export default function ForgotPasswordScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Recuperar senha</Text>
-      <Text style={styles.subtitle}>
-        Digite seu e-mail e enviaremos um link para redefinir sua senha.
-      </Text>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+    >
+      <StatusBar barStyle="light-content" backgroundColor="#1C3A2F" />
 
-      <TextInput
-        style={styles.input}
-        placeholder="E-mail"
-        placeholderTextColor="#999"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+      <View style={styles.header}>
+        <View style={styles.logoWrapper}>
+          <Text style={styles.logoTask}>Task</Text>
+          <Text style={styles.logoLink}>Link</Text>
+        </View>
+        <Text style={styles.headerSub}>Recuperação de acesso</Text>
+      </View>
 
-      <TouchableOpacity style={styles.btnPrimary} onPress={handleReset} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Enviar e-mail</Text>}
-      </TouchableOpacity>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Recuperar{'\n'}Senha</Text>
+        <Text style={styles.cardSubtitle}>
+          Digite seu e-mail e enviaremos um link para redefinir sua senha.
+        </Text>
 
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.link}>Voltar ao login</Text>
-      </TouchableOpacity>
-    </View>
+        <TextInput
+          style={styles.input}
+          placeholder="E-mail"
+          placeholderTextColor="#999"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+
+        <TouchableOpacity
+          style={styles.btnPrimary}
+          onPress={handleReset}
+          disabled={loading}
+        >
+          {loading
+            ? <ActivityIndicator color="#1C3A2F" />
+            : <Text style={styles.btnText}>Enviar e-mail</Text>
+          }
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.link}>← Voltar ao login</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 28, justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#1a1a2e', marginBottom: 6 },
-  subtitle: { fontSize: 15, color: '#666', marginBottom: 32 },
+  scroll: { flex: 1, backgroundColor: '#1C3A2F' },
+  scrollContent: { flexGrow: 1 },
+
+  header: {
+    backgroundColor: '#1C3A2F',
+    paddingTop: 60,
+    paddingBottom: 32,
+    paddingHorizontal: 28,
+  },
+  logoWrapper: { flexDirection: 'row', marginBottom: 6 },
+  logoTask: { fontSize: 32, fontWeight: 'bold', color: '#FFFFFF' },
+  logoLink: { fontSize: 32, fontWeight: 'bold', color: '#C9962A' },
+  headerSub: { fontSize: 15, color: '#A8C5B5' },
+
+  card: {
+    flex: 1,
+    backgroundColor: '#F0F0F0',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 28,
+    paddingTop: 36,
+  },
+  cardTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1C3A2F',
+    marginBottom: 10,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 28,
+    lineHeight: 20,
+  },
+
   input: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
-    padding: 14, fontSize: 15, marginBottom: 20, color: '#333',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#C9962A',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: '#333',
+    marginBottom: 20,
   },
+
   btnPrimary: {
-    backgroundColor: '#6C63FF', borderRadius: 10,
-    padding: 16, alignItems: 'center', marginBottom: 16,
+    backgroundColor: '#C9962A',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  link: { textAlign: 'center', color: '#6C63FF' },
+  btnText: { color: '#1C3A2F', fontWeight: 'bold', fontSize: 16 },
+
+  link: {
+    textAlign: 'center',
+    color: '#1C3A2F',
+    fontSize: 14,
+    fontWeight: '500',
+  },
 });

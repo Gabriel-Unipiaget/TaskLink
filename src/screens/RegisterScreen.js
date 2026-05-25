@@ -1,81 +1,127 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator,
+  StyleSheet, Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { registerWithEmail } from '../services/authService';
-import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import { colors, commonStyles } from '../theme';
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [role, setRole] = useState('client');
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
     if (!name || !email || !password || !confirm) {
-      Alert.alert('Atenção', 'Preencha todos os campos.');
-      return;
+      Alert.alert('Atenção', 'Preencha todos os campos.'); return;
     }
     if (password.length < 6) {
-      Alert.alert('Atenção', 'A senha deve ter no mínimo 6 caracteres.');
-      return;
+      Alert.alert('Atenção', 'A senha deve ter no mínimo 6 caracteres.'); return;
     }
     if (password !== confirm) {
-      Alert.alert('Atenção', 'As senhas não conferem.');
-      return;
+      Alert.alert('Atenção', 'As senhas não conferem.'); return;
     }
     setLoading(true);
     try {
       const { user } = await registerWithEmail(email, password);
       await user.updateProfile({ displayName: name });
-      navigation.replace('Home');
+      await firestore().collection('usuarios').doc(user.uid).set({
+        name,
+        email,
+        role,
+        createdAt: firestore.FieldValue.serverTimestamp(),
+      });
+      navigation.replace('Main');
     } catch (error) {
       if (error.code === 'auth/email-already-in-use') {
         Alert.alert('Erro', 'Este e-mail já está cadastrado.');
       } else {
         Alert.alert('Erro', 'Não foi possível criar a conta.');
       }
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Criar conta</Text>
-      <Text style={styles.subtitle}>Preencha seus dados para começar</Text>
+      <View style={commonStyles.header}>
+        <View style={commonStyles.logoRow}>
+          <Text style={commonStyles.logoTask}>Task</Text>
+          <Text style={commonStyles.logoLink}>Link</Text>
+        </View>
+        <Text style={commonStyles.headerSubtitle}>Crie sua conta</Text>
+      </View>
 
-      <TextInput style={styles.input} placeholder="Nome completo" placeholderTextColor="#999" value={name} onChangeText={setName} />
-      <TextInput style={styles.input} placeholder="E-mail" placeholderTextColor="#999" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-      <TextInput style={styles.input} placeholder="Senha (mín. 6 caracteres)" placeholderTextColor="#999" value={password} onChangeText={setPassword} secureTextEntry />
-      <TextInput style={styles.input} placeholder="Confirmar senha" placeholderTextColor="#999" value={confirm} onChangeText={setConfirm} secureTextEntry />
+      <ScrollView style={commonStyles.card} showsVerticalScrollIndicator={false}>
+        <Text style={styles.title}>Cadastro</Text>
+        <View style={commonStyles.divider} />
 
-      <TouchableOpacity style={styles.btnPrimary} onPress={handleRegister} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Cadastrar</Text>}
-      </TouchableOpacity>
+        <Text style={commonStyles.sectionTitle}>Você é</Text>
+        <View style={styles.roleRow}>
+          <TouchableOpacity
+            style={[styles.roleBtn, role === 'client' && styles.roleBtnSelected]}
+            onPress={() => setRole('client')}
+          >
+            <Text style={[styles.roleBtnText, role === 'client' && styles.roleBtnTextSelected]}>
+              👤 Cliente
+            </Text>
+            <Text style={[styles.roleDesc, role === 'client' && styles.roleBtnTextSelected]}>
+              Quero agendar serviços
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.roleBtn, role === 'owner' && styles.roleBtnSelected]}
+            onPress={() => setRole('owner')}
+          >
+            <Text style={[styles.roleBtnText, role === 'owner' && styles.roleBtnTextSelected]}>
+              🏪 Estabelecimento
+            </Text>
+            <Text style={[styles.roleDesc, role === 'owner' && styles.roleBtnTextSelected]}>
+              Quero gerenciar minha clínica
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.link}>Já tem conta? <Text style={styles.linkBold}>Faça login</Text></Text>
-      </TouchableOpacity>
+        <Text style={commonStyles.sectionTitle}>Nome completo</Text>
+        <TextInput style={commonStyles.input} placeholder="Seu nome" placeholderTextColor={colors.textLight} value={name} onChangeText={setName} />
+
+        <Text style={commonStyles.sectionTitle}>E-mail</Text>
+        <TextInput style={commonStyles.input} placeholder="seu@email.com" placeholderTextColor={colors.textLight} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+
+        <Text style={commonStyles.sectionTitle}>Senha</Text>
+        <TextInput style={commonStyles.input} placeholder="Mínimo 6 caracteres" placeholderTextColor={colors.textLight} value={password} onChangeText={setPassword} secureTextEntry />
+
+        <Text style={commonStyles.sectionTitle}>Confirmar senha</Text>
+        <TextInput style={commonStyles.input} placeholder="Repita a senha" placeholderTextColor={colors.textLight} value={confirm} onChangeText={setConfirm} secureTextEntry />
+
+        <TouchableOpacity style={commonStyles.btnPrimary} onPress={handleRegister} disabled={loading}>
+          {loading ? <ActivityIndicator color={colors.primary} /> : <Text style={commonStyles.btnPrimaryText}>Criar conta</Text>}
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.link}>Já tem conta? <Text style={styles.linkBold}>Faça login</Text></Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 28, justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#1a1a2e', marginBottom: 6 },
-  subtitle: { fontSize: 15, color: '#666', marginBottom: 32 },
-  input: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
-    padding: 14, fontSize: 15, marginBottom: 14, color: '#333',
+  container: { flex: 1, backgroundColor: colors.primary },
+  title: { fontSize: 22, fontWeight: 'bold', color: colors.textDark, marginTop: 8 },
+  roleRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  roleBtn: {
+    flex: 1, borderWidth: 1.5, borderColor: '#ddd',
+    borderRadius: 12, padding: 12, alignItems: 'center',
+    backgroundColor: '#fff',
   },
-  btnPrimary: {
-    backgroundColor: '#6C63FF', borderRadius: 10,
-    padding: 16, alignItems: 'center', marginBottom: 16,
-  },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  link: { textAlign: 'center', color: '#666' },
-  linkBold: { color: '#6C63FF', fontWeight: 'bold' },
+  roleBtnSelected: { borderColor: colors.gold, backgroundColor: colors.gold },
+  roleBtnText: { fontWeight: 'bold', color: colors.textDark, fontSize: 13 },
+  roleBtnTextSelected: { color: colors.primary },
+  roleDesc: { fontSize: 11, color: colors.textBody, marginTop: 4, textAlign: 'center' },
+  link: { textAlign: 'center', color: colors.textBody, marginBottom: 20 },
+  linkBold: { color: colors.gold, fontWeight: 'bold' },
 });

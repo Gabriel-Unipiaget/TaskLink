@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, StatusBar } from 'react-native';
 import auth from '@react-native-firebase/auth';
 
 export default function SplashScreen({ navigation }) {
@@ -17,7 +17,12 @@ export default function SplashScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>TaskLink</Text>
+      <StatusBar barStyle="light-content" backgroundColor="#1C3A2F" />
+      <View style={styles.logoWrapper}>
+        <Text style={styles.logoTask}>Task</Text>
+        <Text style={styles.logoLink}>Link</Text>
+      </View>
+      <View style={styles.divider} />
       <Text style={styles.slogan}>Agendamento inteligente para estética</Text>
     </View>
   );
@@ -26,18 +31,37 @@ export default function SplashScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#6C63FF',
+    backgroundColor: '#1C3A2F',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logo: {
-    fontSize: 42,
+  logoWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  logoTask: {
+    fontSize: 48,
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 12,
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  logoLink: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#C9962A',
+    letterSpacing: 1,
+  },
+  divider: {
+    width: 48,
+    height: 3,
+    backgroundColor: '#C9962A',
+    borderRadius: 2,
+    marginBottom: 16,
   },
   slogan: {
-    fontSize: 16,
-    color: '#E0DEFF',
+    fontSize: 15,
+    color: '#A8C5B5',
+    letterSpacing: 0.5,
   },
 });
