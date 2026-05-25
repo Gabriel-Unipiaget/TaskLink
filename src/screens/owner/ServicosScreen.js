@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, ActivityIndicator, TextInput, Modal,
 } from 'react-native';
 import {
-  getMinhasClinicas, getServicosByClinica,
+  getMinhasClinicas, onServicosByClinicaSnapshot,
   createServico, updateServico, deleteServico,
 } from '../../services/firestoreService';
 import { colors, commonStyles } from '../../theme';
@@ -24,21 +24,18 @@ export default function ServicosScreen() {
   useEffect(() => {
     getMinhasClinicas().then(data => {
       setClinicas(data);
-      if (data.length > 0) {
-        setClinicaSelecionada(data[0]);
-      }
+      if (data.length > 0) setClinicaSelecionada(data[0]);
       setLoading(false);
     });
   }, []);
 
   useEffect(() => {
-    if (clinicaSelecionada) loadServicos();
+    if (!clinicaSelecionada) return;
+    const unsubscribe = onServicosByClinicaSnapshot(clinicaSelecionada.id, (data) => {
+      setServicos(data);
+    });
+    return () => unsubscribe();
   }, [clinicaSelecionada]);
-
-  const loadServicos = async () => {
-    const data = await getServicosByClinica(clinicaSelecionada.id);
-    setServicos(data);
-  };
 
   const openCreate = () => { setForm(emptyForm); setEditingId(null); setModalVisible(true); };
   const openEdit = (s) => {
@@ -64,7 +61,6 @@ export default function ServicosScreen() {
         await createServico(data);
       }
       setModalVisible(false);
-      loadServicos();
     } catch {
       Alert.alert('Erro', 'Não foi possível salvar.');
     } finally { setSaving(false); }
@@ -73,7 +69,7 @@ export default function ServicosScreen() {
   const handleDelete = (id) => {
     Alert.alert('Excluir', 'Deseja excluir este serviço?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Excluir', style: 'destructive', onPress: async () => { await deleteServico(id); loadServicos(); } },
+      { text: 'Excluir', style: 'destructive', onPress: async () => { await deleteServico(id); } },
     ]);
   };
 

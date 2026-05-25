@@ -9,6 +9,7 @@ import firestore from '@react-native-firebase/firestore';
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 import { colors, commonStyles } from '../theme';
+import { logout } from '../services/authService';
 
 export default function ProfileScreen({ navigation }) {
   const user = auth().currentUser;
@@ -35,6 +36,24 @@ export default function ProfileScreen({ navigation }) {
       console.log(error);
     }
   };
+
+const handleLogout = () => {
+  Alert.alert('Sair', 'Deseja sair da sua conta?', [
+    { text: 'Cancelar', style: 'cancel' },
+    {
+      text: 'Sair', style: 'destructive',
+      onPress: async () => {
+        await logout();
+        navigation.getParent()?.dispatch(
+          require('@react-navigation/native').CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          })
+        );
+      },
+    },
+  ]);
+};
 
   const requestGalleryPermission = async () => {
     if (Platform.OS !== 'android') return true;
@@ -107,9 +126,7 @@ export default function ProfileScreen({ navigation }) {
     setEditing(false);
   };
 
-  const photoSource = photoBase64
-    ? { uri: photoBase64 }
-    : null;
+  const photoSource = photoBase64 ? { uri: photoBase64 } : null;
 
   return (
     <View style={styles.container}>
@@ -210,6 +227,11 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
         ))}
+
+        <TouchableOpacity style={styles.btnLogout} onPress={handleLogout}>
+          <Text style={styles.btnLogoutText}>Sair da conta</Text>
+        </TouchableOpacity>
+
       </ScrollView>
     </View>
   );
@@ -257,4 +279,9 @@ const styles = StyleSheet.create({
   },
   menuItemText: { fontSize: 15, color: colors.textDark, fontWeight: '500' },
   menuArrow: { fontSize: 22, color: colors.gold, fontWeight: 'bold' },
+  btnLogout: {
+    borderWidth: 1.5, borderColor: '#E53935', borderRadius: 12,
+    padding: 14, alignItems: 'center', marginTop: 8, marginBottom: 32,
+  },
+  btnLogoutText: { color: '#E53935', fontWeight: 'bold', fontSize: 15 },
 });

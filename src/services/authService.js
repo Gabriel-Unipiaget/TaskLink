@@ -17,7 +17,11 @@ export const loginWithGoogle = async () => {
   await GoogleSignin.hasPlayServices();
   const { data } = await GoogleSignin.signIn();
   const googleCredential = auth.GoogleAuthProvider.credential(data.idToken);
-  return auth().signInWithCredential(googleCredential);
+  const result = await auth().signInWithCredential(googleCredential);
+  
+  // Verifica se é novo usuário
+  const isNewUser = result.additionalUserInfo?.isNewUser;
+  return { user: result.user, isNewUser };
 };
 
 export const forgotPassword = (email) => {

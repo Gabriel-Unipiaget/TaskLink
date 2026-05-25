@@ -3,11 +3,8 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, ActivityIndicator, TextInput, Modal,
 } from 'react-native';
-import {
-  getMinhasClinicas, createClinica,
-  updateClinica, deleteClinica,
-} from '../../services/firestoreService';
 import { colors, commonStyles } from '../../theme';
+import { onMinhasClinicasSnapshot, createClinica, updateClinica, deleteClinica } from '../../services/firestoreService';
 
 const emptyForm = { nome: '', descricao: '', endereco: '', telefone: '' };
 
@@ -19,6 +16,16 @@ export default function ClinicasScreen() {
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+
+  // Troca o useEffect e remove a função load
+useEffect(() => {
+  setLoading(true);
+  const unsubscribe = onMinhasClinicasSnapshot((data) => {
+    setClinicas(data);
+    setLoading(false);
+  });
+  return () => unsubscribe(); // limpa o listener ao sair da tela
+}, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,31 +42,31 @@ export default function ClinicasScreen() {
   const openCreate = () => { setForm(emptyForm); setEditingId(null); setModalVisible(true); };
   const openEdit = (c) => { setForm({ nome: c.nome, descricao: c.descricao, endereco: c.endereco, telefone: c.telefone }); setEditingId(c.id); setModalVisible(true); };
 
-  const handleSave = async () => {
-    if (!form.nome || !form.endereco) { Alert.alert('Atenção', 'Nome e endereço são obrigatórios.'); return; }
-    setSaving(true);
-    try {
-      if (editingId) {
-        await updateClinica(editingId, form);
-      } else {
-        await createClinica(form);
-      }
-      setModalVisible(false);
-      load();
-    } catch {
-      Alert.alert('Erro', 'Não foi possível salvar.');
-    } finally { setSaving(false); }
-  };
+ const handleSave = async () => {
+  if (!form.nome || !form.endereco) { Alert.alert('Atenção', 'Nome e endereço são obrigatórios.'); return; }
+  setSaving(true);
+  try {
+    if (editingId) {
+      await updateClinica(editingId, form);
+    } else {
+      await createClinica(form);
+    }
+    setModalVisible(false);
+    // removeu o load() daqui
+  } catch {
+    Alert.alert('Erro', 'Não foi possível salvar.');
+  } finally { setSaving(false); }
+};
 
-  const handleDelete = (id) => {
-    Alert.alert('Excluir', 'Deseja excluir esta clínica?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Excluir', style: 'destructive', onPress: async () => {
-        await deleteClinica(id);
-        load();
-      }},
-    ]);
-  };
+const handleDelete = (id) => {
+  Alert.alert('Excluir', 'Deseja excluir esta clínica?', [
+    { text: 'Cancelar', style: 'cancel' },
+    { text: 'Excluir', style: 'destructive', onPress: async () => {
+      await deleteClinica(id);
+      // removeu o load() daqui
+    }},
+  ]);
+};
 
   const filtered = clinicas.filter(c =>
     c.nome.toLowerCase().includes(search.toLowerCase()) ||

@@ -7,7 +7,7 @@ export default function SplashScreen({ navigation }) {
     const timer = setTimeout(() => {
       const user = auth().currentUser;
       if (user) {
-        navigation.replace('Home');
+        navigation.replace('Main');
       } else {
         navigation.replace('Login');
       }

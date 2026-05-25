@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { getMinhasClinicas, getAgendamentosByClinica } from '../../services/firestoreService';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { onMinhasClinicasSnapshot, getAgendamentosByClinica } from '../../services/firestoreService';
 import auth from '@react-native-firebase/auth';
 import { colors, commonStyles } from '../../theme';
 
@@ -11,23 +11,18 @@ export default function OwnerHomeScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const c = await getMinhasClinicas();
-      setClinicas(c);
+    const unsubscribe = onMinhasClinicasSnapshot(async (data) => {
+      setClinicas(data);
       let total = 0;
-      for (const clinica of c) {
+      for (const clinica of data) {
         const ags = await getAgendamentosByClinica(clinica.id);
         total += ags.length;
       }
       setTotalAgendamentos(total);
-    } finally {
       setLoading(false);
-    }
-  };
+    });
+    return () => unsubscribe();
+  }, []);
 
   return (
     <View style={styles.container}>

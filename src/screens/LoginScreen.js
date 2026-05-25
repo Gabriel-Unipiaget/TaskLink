@@ -16,21 +16,25 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       await loginWithEmail(email, password);
-      navigation.replace('Home');
+      navigation.replace('Main');
     } catch {
       Alert.alert('Erro', 'E-mail ou senha incorretos.');
     } finally { setLoading(false); }
   };
 
   const handleGoogle = async () => {
-    setLoading(true);
-    try {
-      await loginWithGoogle();
-      navigation.replace('Home');
-    } catch {
-      Alert.alert('Erro', 'Não foi possível entrar com Google.');
-    } finally { setLoading(false); }
-  };
+  setLoading(true);
+  try {
+    const { isNewUser } = await loginWithGoogle();
+    if (isNewUser) {
+      navigation.replace('RoleSelect');
+    } else {
+      navigation.replace('Main');
+    }
+  } catch {
+    Alert.alert('Erro', 'Não foi possível entrar com Google.');
+  } finally { setLoading(false); }
+};
 
   return (
     <View style={styles.container}>

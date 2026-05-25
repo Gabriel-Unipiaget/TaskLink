@@ -45,6 +45,17 @@ export const deleteClinica = async (id) => {
   await firestore().collection('clinicas').doc(id).delete();
 };
 
+export const onMinhasClinicasSnapshot = (callback) => {
+  const uid = auth().currentUser?.uid;
+  return firestore()
+    .collection('clinicas')
+    .where('ownerId', '==', uid)
+    .onSnapshot(snapshot => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      callback(data);
+    });
+};
+
 // SERVIÇOS
 export const createServico = async (data) => {
   return firestore().collection('servicos').add({
@@ -67,6 +78,16 @@ export const updateServico = async (id, data) => {
 
 export const deleteServico = async (id) => {
   await firestore().collection('servicos').doc(id).delete();
+};
+
+export const onServicosByClinicaSnapshot = (clinicaId, callback) => {
+  return firestore()
+    .collection('servicos')
+    .where('clinicaId', '==', clinicaId)
+    .onSnapshot(snapshot => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      callback(data);
+    });
 };
 
 // AGENDAMENTOS
@@ -99,4 +120,27 @@ export const getAgendamentosByClinica = async (clinicaId) => {
 
 export const updateAgendamentoStatus = async (id, status) => {
   await firestore().collection('agendamentos').doc(id).update({ status });
+};
+
+export const onAgendamentosByClienteSnapshot = (callback) => {
+  const uid = auth().currentUser?.uid;
+  return firestore()
+    .collection('agendamentos')
+    .where('clienteId', '==', uid)
+    .orderBy('createdAt', 'desc')
+    .onSnapshot(snapshot => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      callback(data);
+    });
+};
+
+export const onAgendamentosByClinicaSnapshot = (clinicaId, callback) => {
+  return firestore()
+    .collection('agendamentos')
+    .where('clinicaId', '==', clinicaId)
+    .orderBy('createdAt', 'desc')
+    .onSnapshot(snapshot => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      callback(data);
+    });
 };
