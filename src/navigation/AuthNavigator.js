@@ -9,6 +9,8 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import SupportScreen from '../screens/SupportScreen';
 import RoleSelectScreen from '../screens/RoleSelectScreen';
 import PrivacyScreen from '../screens/PrivacyScreen';
+import AvaliarScreen from '../screens/AvaliarScreen';
+import ChatScreen from '../screens/ChatScreen';
 import MainNavigator from './MainNavigator';
 
 const Stack = createNativeStackNavigator();
@@ -26,6 +28,8 @@ export default function AuthNavigator() {
       <Stack.Screen name="Support" component={SupportScreen} />
       <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />
       <Stack.Screen name="Privacy" component={PrivacyScreen} />
+      <Stack.Screen name="Avaliar" component={AvaliarScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
     </Stack.Navigator>
   );
 }

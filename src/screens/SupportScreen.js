@@ -1,17 +1,10 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, Linking, LayoutAnimation,
+  ScrollView, Linking, LayoutAnimation, Alert,
 } from 'react-native';
 import { colors, commonStyles } from '../theme';
-
-const faqs = [
-  { q: 'Como faço um agendamento?', a: 'Na tela principal, toque em "Novo agendamento", escolha o serviço, profissional e horário disponível.' },
-  { q: 'Como cancelo um agendamento?', a: 'Acesse "Meus agendamentos", selecione o agendamento desejado e toque em "Cancelar".' },
-  { q: 'Como altero minha senha?', a: 'Vá em Perfil → Segurança e acesso → Alterar senha.' },
-  { q: 'Como atualizo minha foto de perfil?', a: 'Na tela de Perfil, toque na foto e selecione uma imagem da sua galeria.' },
-  { q: 'O app é gratuito?', a: 'Sim! O TaskLink é gratuito para clientes. Planos para estabelecimentos estão disponíveis em nosso site.' },
-];
+import { faqs } from '../data/faqs';
 
 export default function SupportScreen({ navigation }) {
   const [openFaq, setOpenFaq] = useState(null);
@@ -54,7 +47,10 @@ export default function SupportScreen({ navigation }) {
 
         {faqs.map((faq, index) => (
           <TouchableOpacity key={index} style={commonStyles.contentCard} onPress={() => toggleFaq(index)}>
-            <Text style={styles.faqQuestion}>{faq.q}</Text>
+            <View style={styles.faqHeader}>
+              <Text style={styles.faqQuestion}>{faq.q}</Text>
+              <Text style={styles.faqChevron}>{openFaq === index ? '▲' : '▼'}</Text>
+            </View>
             {openFaq === index && <Text style={styles.faqAnswer}>{faq.a}</Text>}
           </TouchableOpacity>
         ))}
@@ -77,7 +73,9 @@ const styles = StyleSheet.create({
   backText: { color: colors.gold, fontWeight: 'bold' },
   title: { fontSize: 22, fontWeight: 'bold', color: colors.textDark, marginTop: 8 },
   contactText: { color: colors.gold, fontWeight: 'bold', fontSize: 14 },
-  faqQuestion: { fontWeight: 'bold', color: colors.textDark, fontSize: 14 },
+  faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  faqQuestion: { fontWeight: 'bold', color: colors.textDark, fontSize: 14, flex: 1, marginRight: 8 },
+  faqChevron: { color: colors.gold, fontSize: 12 },
   faqAnswer: { color: colors.textBody, fontSize: 13, marginTop: 8, lineHeight: 20 },
   aboutItem: { color: colors.textBody, fontSize: 14, marginBottom: 4 },
 });

@@ -1,18 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, Switch, StyleSheet,
-  ScrollView, TouchableOpacity, Alert,
+  ScrollView, TouchableOpacity, Alert, ActivityIndicator,
 } from 'react-native';
 import { colors, commonStyles } from '../theme';
+import { getNotificationPreferences, updateNotificationPreferences } from '../services/firestoreService';
 
 export default function NotificationsScreen({ navigation }) {
-  const [appNotif, setAppNotif] = useState(true);
-  const [emailNotif, setEmailNotif] = useState(false);
-  const [whatsappNotif, setWhatsappNotif] = useState(false);
+  const [prefs, setPrefs] = useState({ app: true, email: false, whatsapp: false });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    Alert.alert('Sucesso', 'Preferências de notificação salvas!');
+  useEffect(() => {
+    getNotificationPreferences().then(p => {
+      setPrefs(p);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateNotificationPreferences(prefs);
+      Alert.alert('Sucesso', 'Preferências de notificação salvas!');
+    } catch {
+      Alert.alert('Erro', 'Não foi possível salvar as preferências.');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color={colors.gold} size="large" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -34,23 +58,30 @@ export default function NotificationsScreen({ navigation }) {
         <Text style={commonStyles.sectionTitle}>Escolha como deseja ser notificado</Text>
 
         {[
-          { label: 'Notificações no app', value: appNotif, setter: setAppNotif },
-          { label: 'E-mail', value: emailNotif, setter: setEmailNotif },
-          { label: 'WhatsApp', value: whatsappNotif, setter: setWhatsappNotif },
+          { label: 'Notificações no app', key: 'app' },
+          { label: 'E-mail', key: 'email' },
+          { label: 'WhatsApp', key: 'whatsapp' },
         ].map((item) => (
-          <View key={item.label} style={styles.row}>
+          <View key={item.key} style={styles.row}>
             <Text style={styles.rowLabel}>{item.label}</Text>
             <Switch
-              value={item.value}
-              onValueChange={item.setter}
+              value={!!prefs[item.key]}
+              onValueChange={v => setPrefs(p => ({ ...p, [item.key]: v }))}
               trackColor={{ false: '#ddd', true: colors.gold }}
-              thumbColor={item.value ? colors.primary : '#f4f3f4'}
+              thumbColor={prefs[item.key] ? colors.primary : '#f4f3f4'}
             />
           </View>
         ))}
 
-        <TouchableOpacity style={[commonStyles.btnPrimary, { marginTop: 24 }]} onPress={handleSave}>
-          <Text style={commonStyles.btnPrimaryText}>Salvar preferências</Text>
+        <TouchableOpacity
+          style={[commonStyles.btnPrimary, { marginTop: 24 }]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving
+            ? <ActivityIndicator color={colors.primary} />
+            : <Text style={commonStyles.btnPrimaryText}>Salvar preferências</Text>
+          }
         </TouchableOpacity>
       </ScrollView>
     </View>

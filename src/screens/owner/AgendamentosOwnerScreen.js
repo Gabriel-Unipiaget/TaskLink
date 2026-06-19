@@ -3,11 +3,19 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, ActivityIndicator,
 } from 'react-native';
+import auth from '@react-native-firebase/auth';
 import {
   getMinhasClinicas, onAgendamentosByClinicaSnapshot,
-  updateAgendamentoStatus,
+  updateAgendamentoStatus, getOrCreateConversa,
 } from '../../services/firestoreService';
 import { colors, commonStyles } from '../../theme';
+
+const STATUS_FILTERS = [
+  { label: 'Todos', value: 'todos' },
+  { label: '⏳ Pendente', value: 'pendente' },
+  { label: '✅ Confirmado', value: 'confirmado' },
+  { label: '❌ Cancelado', value: 'cancelado' },
+];
 
 const statusColor = (status) => {
   if (status === 'confirmado') return '#4CAF50';
@@ -21,11 +29,14 @@ const statusLabel = (status) => {
   return '⏳ Pendente';
 };
 
-export default function AgendamentosOwnerScreen() {
+export default function AgendamentosOwnerScreen({ navigation }) {
+  const user = auth().currentUser;
   const [clinicas, setClinicas] = useState([]);
   const [clinicaSelecionada, setClinicaSelecionada] = useState(null);
   const [agendamentos, setAgendamentos] = useState([]);
+  const [filtroStatus, setFiltroStatus] = useState('todos'); // <-- novo
   const [loading, setLoading] = useState(true);
+  const [loadingChat, setLoadingChat] = useState(null);
 
   useEffect(() => {
     getMinhasClinicas().then(data => {
@@ -43,12 +54,40 @@ export default function AgendamentosOwnerScreen() {
     return () => unsubscribe();
   }, [clinicaSelecionada]);
 
+  // Filtragem local
+  const agendamentosFiltrados = filtroStatus === 'todos'
+    ? agendamentos
+    : agendamentos.filter(a => a.status === filtroStatus);
+
   const handleStatus = (id, status) => {
     const label = status === 'confirmado' ? 'confirmar' : 'cancelar';
     Alert.alert('Atenção', `Deseja ${label} este agendamento?`, [
       { text: 'Não', style: 'cancel' },
       { text: 'Sim', onPress: () => updateAgendamentoStatus(id, status) },
     ]);
+  };
+
+  const handleMensagem = async (agendamento) => {
+    setLoadingChat(agendamento.id);
+    try {
+      const conversaId = await getOrCreateConversa({
+        clienteId: agendamento.clienteId,
+        ownerId: user.uid,
+        clinicaId: clinicaSelecionada.id,
+        nomeClinica: clinicaSelecionada.nome,
+        nomeCliente: agendamento.nomeCliente || '',
+        nomeOwner: user.displayName || '',
+      });
+      navigation.navigate('Chat', {
+        conversaId,
+        nomeParceiro: agendamento.nomeCliente || 'Cliente',
+        nomeClinica: clinicaSelecionada.nome,
+      });
+    } catch {
+      Alert.alert('Erro', 'Não foi possível abrir o chat.');
+    } finally {
+      setLoadingChat(null);
+    }
   };
 
   return (
@@ -67,6 +106,7 @@ export default function AgendamentosOwnerScreen() {
 
         {loading ? <ActivityIndicator color={colors.gold} /> : (
           <>
+            {/* Seletor de clínica */}
             <Text style={commonStyles.sectionTitle}>Clínica</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
               {clinicas.map(c => (
@@ -82,13 +122,30 @@ export default function AgendamentosOwnerScreen() {
               ))}
             </ScrollView>
 
+            {/* Filtro de status */}
+            <Text style={commonStyles.sectionTitle}>Filtrar por status</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+              {STATUS_FILTERS.map(f => (
+                <TouchableOpacity
+                  key={f.value}
+                  style={[styles.chip, filtroStatus === f.value && styles.chipSelected]}
+                  onPress={() => setFiltroStatus(f.value)}
+                >
+                  <Text style={[styles.chipText, filtroStatus === f.value && styles.chipTextSelected]}>
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Lista filtrada */}
             <ScrollView showsVerticalScrollIndicator={false}>
-              {agendamentos.length === 0 ? (
+              {agendamentosFiltrados.length === 0 ? (
                 <View style={commonStyles.contentCard}>
                   <Text style={styles.emptyText}>Nenhum agendamento encontrado.</Text>
                 </View>
               ) : (
-                agendamentos.map(a => (
+                agendamentosFiltrados.map(a => (
                   <View key={a.id} style={commonStyles.contentCard}>
                     <View style={styles.statusRow}>
                       <Text style={styles.servicoNome}>{a.nomeServico}</Text>
@@ -101,22 +158,36 @@ export default function AgendamentosOwnerScreen() {
                     <Text style={styles.info}>💰 R$ {Number(a.preco).toFixed(2)}</Text>
                     <Text style={styles.info}>⏱ {a.duracao} min</Text>
 
-                    {a.status === 'pendente' && (
-                      <View style={styles.actions}>
+                    <View style={styles.actions}>
+                      {a.status === 'pendente' && (
+                        <>
+                          <TouchableOpacity
+                            style={styles.btnConfirmar}
+                            onPress={() => handleStatus(a.id, 'confirmado')}
+                          >
+                            <Text style={styles.btnConfirmarText}>✅ Confirmar</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.btnCancelar}
+                            onPress={() => handleStatus(a.id, 'cancelado')}
+                          >
+                            <Text style={styles.btnCancelarText}>❌ Cancelar</Text>
+                          </TouchableOpacity>
+                        </>
+                      )}
+                      {a.status !== 'cancelado' && (
                         <TouchableOpacity
-                          style={styles.btnConfirmar}
-                          onPress={() => handleStatus(a.id, 'confirmado')}
+                          style={styles.btnMensagem}
+                          onPress={() => handleMensagem(a)}
+                          disabled={loadingChat === a.id}
                         >
-                          <Text style={styles.btnConfirmarText}>✅ Confirmar</Text>
+                          {loadingChat === a.id
+                            ? <ActivityIndicator color="#fff" size="small" />
+                            : <Text style={styles.btnMensagemText}>💬 Mensagem</Text>
+                          }
                         </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.btnCancelar}
-                          onPress={() => handleStatus(a.id, 'cancelado')}
-                        >
-                          <Text style={styles.btnCancelarText}>❌ Cancelar</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
+                      )}
+                    </View>
                   </View>
                 ))
               )}
@@ -140,9 +211,15 @@ const styles = StyleSheet.create({
   servicoNome: { fontWeight: 'bold', color: colors.textDark, fontSize: 15, flex: 1 },
   status: { fontWeight: 'bold', fontSize: 12 },
   info: { color: colors.textBody, fontSize: 13, marginBottom: 3 },
-  actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   btnConfirmar: { flex: 1, borderWidth: 1.5, borderColor: '#4CAF50', borderRadius: 10, padding: 10, alignItems: 'center' },
   btnConfirmarText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 13 },
   btnCancelar: { flex: 1, borderWidth: 1.5, borderColor: '#E53935', borderRadius: 10, padding: 10, alignItems: 'center' },
   btnCancelarText: { color: '#E53935', fontWeight: 'bold', fontSize: 13 },
+  btnMensagem: {
+    borderWidth: 1.5, borderColor: colors.primary, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center',
+    backgroundColor: colors.primary, minWidth: 44,
+  },
+  btnMensagemText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
 });

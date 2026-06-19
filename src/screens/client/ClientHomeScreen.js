@@ -1,13 +1,46 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, TextInput, Modal, Alert,
+  ActivityIndicator, TextInput, Modal, Alert, Image,
 } from 'react-native';
 import {
   getAllClinicas, getServicosByClinica, createAgendamento,
+  onHorariosDisponiveisByServico, reservarHorario,
+  onClinicaFotosSnapshot,
 } from '../../services/firestoreService';
 import auth from '@react-native-firebase/auth';
 import { colors, commonStyles } from '../../theme';
+
+const RatingStars = ({ rating, total }) => {
+  if (!total) return null;
+  const stars = Math.round(rating);
+  return (
+    <View style={styles.ratingRow}>
+      <Text style={styles.ratingStars}>{'★'.repeat(stars)}{'☆'.repeat(5 - stars)}</Text>
+      <Text style={styles.ratingText}>{Number(rating).toFixed(1)} ({total})</Text>
+    </View>
+  );
+};
+
+function ClinicaFotos({ clinicaId }) {
+  const [fotos, setFotos] = useState([]);
+
+  useEffect(() => {
+    if (!clinicaId) return;
+    const unsubscribe = onClinicaFotosSnapshot(clinicaId, setFotos);
+    return () => unsubscribe();
+  }, [clinicaId]);
+
+  if (fotos.length === 0) return null;
+
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.fotosScroll}>
+      {fotos.map(f => (
+        <Image key={f.id} source={{ uri: f.base64 }} style={styles.fotoThumb} />
+      ))}
+    </ScrollView>
+  );
+}
 
 export default function ClientHomeScreen() {
   const user = auth().currentUser;
@@ -19,8 +52,10 @@ export default function ClientHomeScreen() {
   const [loadingServicos, setLoadingServicos] = useState(false);
   const [modalAgendar, setModalAgendar] = useState(false);
   const [servicoSelecionado, setServicoSelecionado] = useState(null);
-  const [data, setData] = useState('');
-  const [hora, setHora] = useState('');
+  const [horariosDisponiveis, setHorariosDisponiveis] = useState([]);
+  const [horarioSelecionado, setHorarioSelecionado] = useState(null);
+  const [loadingHorarios, setLoadingHorarios] = useState(false);
+  const [unsubscribeHorarios, setUnsubscribeHorarios] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -40,18 +75,36 @@ export default function ClientHomeScreen() {
 
   const handleAgendar = (servico) => {
     setServicoSelecionado(servico);
-    setData('');
-    setHora('');
+    setHorarioSelecionado(null);
+    setHorariosDisponiveis([]);
+    setLoadingHorarios(true);
     setModalAgendar(true);
+
+    const unsubscribe = onHorariosDisponiveisByServico(
+      clinicaSelecionada.id,
+      servico.id,
+      (data) => {
+        setHorariosDisponiveis(data);
+        setLoadingHorarios(false);
+      }
+    );
+    setUnsubscribeHorarios(() => unsubscribe);
+  };
+
+  const handleFecharModal = () => {
+    if (unsubscribeHorarios) unsubscribeHorarios();
+    setUnsubscribeHorarios(null);
+    setModalAgendar(false);
   };
 
   const handleConfirmarAgendamento = async () => {
-    if (!data || !hora) {
-      Alert.alert('Atenção', 'Preencha a data e o horário.'); return;
+    if (!horarioSelecionado) {
+      Alert.alert('Atenção', 'Selecione um horário disponível.');
+      return;
     }
     setSaving(true);
     try {
-      await createAgendamento({
+      const docRef = await createAgendamento({
         clienteId: user.uid,
         nomeCliente: user.displayName,
         clinicaId: clinicaSelecionada.id,
@@ -60,14 +113,19 @@ export default function ClientHomeScreen() {
         nomeServico: servicoSelecionado.nome,
         preco: servicoSelecionado.preco,
         duracao: servicoSelecionado.duracao,
-        data,
-        hora,
+        data: horarioSelecionado.data,
+        hora: horarioSelecionado.hora,
+        horarioId: horarioSelecionado.id,
       });
+      await reservarHorario(horarioSelecionado.id, docRef.id);
+      if (unsubscribeHorarios) unsubscribeHorarios();
       setModalAgendar(false);
       Alert.alert('Sucesso! 🎉', 'Agendamento realizado com sucesso!');
     } catch {
       Alert.alert('Erro', 'Não foi possível realizar o agendamento.');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const filtered = clinicas.filter(c =>
@@ -112,7 +170,9 @@ export default function ClientHomeScreen() {
                       style={commonStyles.contentCard}
                       onPress={() => handleSelectClinica(c)}
                     >
+                      <ClinicaFotos clinicaId={c.id} />
                       <Text style={styles.clinicaNome}>{c.nome}</Text>
+                      <RatingStars rating={c.ratingMedia} total={c.totalAvaliacoes} />
                       <Text style={styles.clinicaInfo}>📍 {c.endereco}</Text>
                       {c.telefone ? <Text style={styles.clinicaInfo}>📞 {c.telefone}</Text> : null}
                       {c.descricao ? <Text style={styles.clinicaDesc}>{c.descricao}</Text> : null}
@@ -131,6 +191,7 @@ export default function ClientHomeScreen() {
               </TouchableOpacity>
               <Text style={styles.clinicaHeader}>{clinicaSelecionada.nome}</Text>
             </View>
+            <RatingStars rating={clinicaSelecionada.ratingMedia} total={clinicaSelecionada.totalAvaliacoes} />
             <View style={commonStyles.divider} />
 
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -152,7 +213,7 @@ export default function ClientHomeScreen() {
                         style={[commonStyles.btnPrimary, { marginTop: 12, marginBottom: 0 }]}
                         onPress={() => handleAgendar(s)}
                       >
-                        <Text style={commonStyles.btnPrimaryText}>Agendar</Text>
+                        <Text style={commonStyles.btnPrimaryText}>Ver horários</Text>
                       </TouchableOpacity>
                     </View>
                   ))
@@ -166,7 +227,7 @@ export default function ClientHomeScreen() {
       <Modal visible={modalAgendar} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Confirmar agendamento</Text>
+            <Text style={styles.modalTitle}>Escolher horário</Text>
             <View style={commonStyles.divider} />
 
             <View style={commonStyles.contentCard}>
@@ -176,34 +237,40 @@ export default function ClientHomeScreen() {
               <Text style={styles.modalInfo}>⏱ {servicoSelecionado?.duracao} min</Text>
             </View>
 
-            <Text style={commonStyles.sectionTitle}>Data</Text>
-            <TextInput
-              style={commonStyles.input}
-              placeholder="DD/MM/AAAA"
-              placeholderTextColor={colors.textLight}
-              value={data}
-              onChangeText={setData}
-              keyboardType="numeric"
-            />
+            <Text style={commonStyles.sectionTitle}>Horários disponíveis</Text>
 
-            <Text style={commonStyles.sectionTitle}>Horário</Text>
-            <TextInput
-              style={commonStyles.input}
-              placeholder="HH:MM"
-              placeholderTextColor={colors.textLight}
-              value={hora}
-              onChangeText={setHora}
-              keyboardType="numeric"
-            />
+            {loadingHorarios ? (
+              <ActivityIndicator color={colors.gold} style={{ marginVertical: 20 }} />
+            ) : horariosDisponiveis.length === 0 ? (
+              <View style={commonStyles.contentCard}>
+                <Text style={{ color: colors.textBody, textAlign: 'center' }}>
+                  Nenhum horário disponível no momento.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
+                {horariosDisponiveis.map(h => (
+                  <TouchableOpacity
+                    key={h.id}
+                    style={[styles.horarioOption, horarioSelecionado?.id === h.id && styles.horarioOptionSelected]}
+                    onPress={() => setHorarioSelecionado(h)}
+                  >
+                    <Text style={[styles.horarioOptionText, horarioSelecionado?.id === h.id && styles.horarioOptionTextSelected]}>
+                      📅 {h.data} às {h.hora}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.btnCancel} onPress={() => setModalAgendar(false)}>
+              <TouchableOpacity style={styles.btnCancel} onPress={handleFecharModal}>
                 <Text style={styles.btnCancelText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[commonStyles.btnPrimary, { flex: 1, marginBottom: 0 }]}
+                style={[commonStyles.btnPrimary, { flex: 1, marginBottom: 0 }, !horarioSelecionado && { opacity: 0.5 }]}
                 onPress={handleConfirmarAgendamento}
-                disabled={saving}
+                disabled={saving || !horarioSelecionado}
               >
                 {saving
                   ? <ActivityIndicator color={colors.primary} />
@@ -229,6 +296,11 @@ const styles = StyleSheet.create({
   clinicaInfo: { color: colors.textBody, fontSize: 13, marginBottom: 2 },
   clinicaDesc: { color: '#999', fontSize: 12, marginTop: 4, fontStyle: 'italic' },
   verServicos: { color: colors.gold, fontWeight: 'bold', fontSize: 13, marginTop: 8 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  ratingStars: { color: colors.gold, fontSize: 13 },
+  ratingText: { color: colors.textBody, fontSize: 12 },
+  fotosScroll: { marginBottom: 10 },
+  fotoThumb: { width: 90, height: 70, borderRadius: 8, marginRight: 8 },
   servicoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   servicoNome: { fontWeight: 'bold', color: colors.textDark, fontSize: 15 },
   servicoPreco: { color: colors.gold, fontWeight: 'bold', fontSize: 15 },
@@ -241,4 +313,11 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
   btnCancel: { flex: 1, borderWidth: 1.5, borderColor: '#ddd', borderRadius: 12, padding: 14, alignItems: 'center' },
   btnCancelText: { color: colors.textBody, fontWeight: 'bold' },
+  horarioOption: {
+    borderWidth: 1.5, borderColor: '#ddd', borderRadius: 12,
+    padding: 14, marginBottom: 8, backgroundColor: '#fff',
+  },
+  horarioOptionSelected: { borderColor: colors.gold, backgroundColor: colors.gold },
+  horarioOptionText: { color: colors.textDark, fontWeight: 'bold', fontSize: 14 },
+  horarioOptionTextSelected: { color: colors.primary },
 });

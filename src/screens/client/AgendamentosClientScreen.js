@@ -1,9 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator,
 } from 'react-native';
-import { onAgendamentosByClienteSnapshot, updateAgendamentoStatus } from '../../services/firestoreService';
+import { useFocusEffect } from '@react-navigation/native';
+import auth from '@react-native-firebase/auth';
+import {
+  onAgendamentosByClienteSnapshot, updateAgendamentoStatus,
+  getAvaliacoesByCliente, getClinica, getUserById,
+  getOrCreateConversa,
+} from '../../services/firestoreService';
 import { colors, commonStyles } from '../../theme';
 
 const statusColor = (status) => {
@@ -18,9 +24,12 @@ const statusLabel = (status) => {
   return '⏳ Pendente';
 };
 
-export default function AgendamentosClientScreen() {
+export default function AgendamentosClientScreen({ navigation }) {
+  const user = auth().currentUser;
   const [agendamentos, setAgendamentos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [avaliadosSet, setAvaliadosSet] = useState(new Set());
+  const [loadingChat, setLoadingChat] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAgendamentosByClienteSnapshot((data) => {
@@ -30,6 +39,15 @@ export default function AgendamentosClientScreen() {
     return () => unsubscribe();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      getAvaliacoesByCliente().then(avaliacoes => {
+        const ids = new Set(avaliacoes.map(a => a.agendamentoId));
+        setAvaliadosSet(ids);
+      });
+    }, [])
+  );
+
   const handleCancelar = (id) => {
     Alert.alert('Cancelar', 'Deseja cancelar este agendamento?', [
       { text: 'Não', style: 'cancel' },
@@ -38,6 +56,40 @@ export default function AgendamentosClientScreen() {
         onPress: () => updateAgendamentoStatus(id, 'cancelado'),
       },
     ]);
+  };
+
+  const handleAvaliar = (agendamento) => {
+    navigation.navigate('Avaliar', {
+      agendamentoId: agendamento.id,
+      clinicaId: agendamento.clinicaId,
+      nomeClinica: agendamento.nomeClinica,
+    });
+  };
+
+  const handleMensagem = async (agendamento) => {
+    setLoadingChat(agendamento.id);
+    try {
+      const clinica = await getClinica(agendamento.clinicaId);
+      if (!clinica) { Alert.alert('Erro', 'Clínica não encontrada.'); return; }
+      const owner = await getUserById(clinica.ownerId);
+      const conversaId = await getOrCreateConversa({
+        clienteId: user.uid,
+        ownerId: clinica.ownerId,
+        clinicaId: agendamento.clinicaId,
+        nomeClinica: agendamento.nomeClinica,
+        nomeCliente: user.displayName || '',
+        nomeOwner: owner?.name || 'Clínica',
+      });
+      navigation.navigate('Chat', {
+        conversaId,
+        nomeParceiro: owner?.name || 'Clínica',
+        nomeClinica: agendamento.nomeClinica,
+      });
+    } catch {
+      Alert.alert('Erro', 'Não foi possível abrir o chat.');
+    } finally {
+      setLoadingChat(null);
+    }
   };
 
   return (
@@ -72,11 +124,38 @@ export default function AgendamentosClientScreen() {
                 <Text style={styles.info}>📅 {a.data} às {a.hora}</Text>
                 <Text style={styles.info}>💰 R$ {Number(a.preco).toFixed(2)}</Text>
 
-                {a.status === 'pendente' && (
-                  <TouchableOpacity style={styles.btnCancelar} onPress={() => handleCancelar(a.id)}>
-                    <Text style={styles.btnCancelarText}>Cancelar agendamento</Text>
-                  </TouchableOpacity>
-                )}
+                <View style={styles.actions}>
+                  {a.status === 'pendente' && (
+                    <TouchableOpacity style={styles.btnCancelar} onPress={() => handleCancelar(a.id)}>
+                      <Text style={styles.btnCancelarText}>Cancelar</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {a.status === 'confirmado' && (
+                    avaliadosSet.has(a.id) ? (
+                      <View style={styles.btnAvaliado}>
+                        <Text style={styles.btnAvaliadoText}>⭐ Avaliado</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity style={styles.btnAvaliar} onPress={() => handleAvaliar(a)}>
+                        <Text style={styles.btnAvaliarText}>⭐ Avaliar</Text>
+                      </TouchableOpacity>
+                    )
+                  )}
+
+                  {a.status !== 'cancelado' && (
+                    <TouchableOpacity
+                      style={styles.btnMensagem}
+                      onPress={() => handleMensagem(a)}
+                      disabled={loadingChat === a.id}
+                    >
+                      {loadingChat === a.id
+                        ? <ActivityIndicator color={colors.primary} size="small" />
+                        : <Text style={styles.btnMensagemText}>💬 Mensagem</Text>
+                      }
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             ))
           )
@@ -94,9 +173,28 @@ const styles = StyleSheet.create({
   servicoNome: { fontWeight: 'bold', color: colors.textDark, fontSize: 15, flex: 1 },
   status: { fontWeight: 'bold', fontSize: 12 },
   info: { color: colors.textBody, fontSize: 13, marginBottom: 3 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   btnCancelar: {
     borderWidth: 1.5, borderColor: '#E53935', borderRadius: 10,
-    padding: 10, alignItems: 'center', marginTop: 10,
+    paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center',
   },
   btnCancelarText: { color: '#E53935', fontWeight: 'bold', fontSize: 13 },
+  btnAvaliar: {
+    borderWidth: 1.5, borderColor: colors.gold, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center',
+  },
+  btnAvaliarText: { color: colors.gold, fontWeight: 'bold', fontSize: 13 },
+  btnAvaliado: {
+    borderWidth: 1.5, borderColor: '#ddd', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+  },
+  btnAvaliadoText: { color: '#999', fontWeight: 'bold', fontSize: 13 },
+  btnMensagem: {
+    borderWidth: 1.5, borderColor: colors.primary, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center',
+    backgroundColor: colors.primary,
+    minWidth: 44,
+  },
+  btnMensagemText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
 });

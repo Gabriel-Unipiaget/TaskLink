@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "510094023312-6bjb4gq1996q9kpr2lf6k7jkesiuq3qi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tasklink",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "510094023312-q9u68t60fiomq17f4irjn8hsqcpcssgl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tasklink",
+            "certificate_hash": "b53b859897ad6b8d6fb9ed5362c40eef91e97c25"
+          }
+        },
+        {
           "client_id": "510094023312-elp7es2tkqmvbap4u7rumc6bu0hbt5rj.apps.googleusercontent.com",
           "client_type": 3
         }
